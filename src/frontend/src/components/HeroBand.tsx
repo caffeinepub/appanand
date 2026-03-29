@@ -1,4 +1,7 @@
+import { useAuth } from "../context/AuthContext";
+
 export function HeroBand() {
+  const { currentUser } = useAuth();
   return (
     <section
       className="py-8 px-4 sm:px-6 lg:px-8"
@@ -9,7 +12,7 @@ export function HeroBand() {
     >
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl sm:text-4xl font-bold text-foreground">
-          Welcome back, <span className="text-primary">Rajesh Kumar!</span>
+          Welcome, <span className="text-primary">{currentUser?.name}!</span>
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Other Duties Tracker &mdash; Log and manage your non-office work

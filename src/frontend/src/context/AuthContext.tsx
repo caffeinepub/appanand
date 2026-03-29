@@ -99,9 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.__kind__ === "None") {
         return { success: false, error: "Username already taken" };
       }
-      // Auto-login
-      const loginResult = await login(username, password);
-      return loginResult;
+      // Use returned User directly to avoid IC query staleness race condition
+      persistUser(result.value);
+      return { success: true };
     } catch (e: any) {
       return { success: false, error: e?.message ?? "Registration failed" };
     } finally {

@@ -109,7 +109,7 @@ export interface UpcomingDutyInput {
 }
 
 export interface backendInterface {
-    registerUser(name: string, username: string, password: string): Promise<Option<bigint>>;
+    registerUser(name: string, username: string, password: string): Promise<Option<User>>;
     loginUser(username: string, password: string): Promise<Option<User>>;
     getUserCount(): Promise<bigint>;
     addDutyEntry(input: DutyEntryInput): Promise<bigint>;

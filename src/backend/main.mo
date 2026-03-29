@@ -20,7 +20,7 @@ persistent actor {
   stable var users : [User] = [];
   stable var nextUserId : Nat = 1;
 
-  public func registerUser(name : Text, username : Text, password : Text) : async ?Nat {
+  public func registerUser(name : Text, username : Text, password : Text) : async ?User {
     if (users.size() >= 10) { return null };
     let exists = Array.find(users, func(u : User) : Bool { u.username == username });
     switch (exists) {
@@ -30,7 +30,7 @@ persistent actor {
         nextUserId += 1;
         let user : User = { id; name; username; password; createdAt = Time.now() };
         users := Array.append(users, [user]);
-        ?id
+        ?user
       };
     };
   };

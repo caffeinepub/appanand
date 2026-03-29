@@ -95,7 +95,7 @@ export const idlFactory = ({ IDL }) => {
   });
   return IDL.Service({
     // Auth
-    registerUser: IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Opt(IDL.Nat)], []),
+    registerUser: IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Opt(User)], []),
     loginUser: IDL.Func([IDL.Text, IDL.Text], [IDL.Opt(User)], ['query']),
     getUserCount: IDL.Func([], [IDL.Nat], ['query']),
     // Duty Entries

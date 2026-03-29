@@ -105,7 +105,7 @@ export interface UpcomingDutyInput {
 }
 
 export interface _SERVICE {
-    registerUser: ActorMethod<[string, string, string], [] | [bigint]>;
+    registerUser: ActorMethod<[string, string, string], [] | [User]>;
     loginUser: ActorMethod<[string, string], [] | [User]>;
     getUserCount: ActorMethod<[], bigint>;
     addDutyEntry: ActorMethod<[DutyEntryInput], bigint>;

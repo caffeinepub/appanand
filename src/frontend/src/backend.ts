@@ -97,7 +97,7 @@ export class ExternalBlob {
 }
 
 export interface backendInterface {
-    registerUser(name: string, username: string, password: string): Promise<Option<bigint>>;
+    registerUser(name: string, username: string, password: string): Promise<Option<any>>;
     loginUser(username: string, password: string): Promise<Option<any>>;
     getUserCount(): Promise<bigint>;
     addDutyEntry(input: any): Promise<bigint>;
@@ -201,7 +201,7 @@ function leaveFromCandid(entry: any): any {
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
 
-    async registerUser(name: string, username: string, password: string): Promise<Option<bigint>> {
+    async registerUser(name: string, username: string, password: string): Promise<Option<any>> {
         const result = await this.actor.registerUser(name, username, password);
         return candidToOpt(result);
     }
