@@ -18,6 +18,7 @@ import {
   useGetLeaveEntriesByUser,
   useGetUpcomingDutiesByUser,
 } from "./hooks/useQueries";
+import { AdminPage } from "./pages/AdminPage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 
@@ -191,8 +192,12 @@ function MainApp() {
 }
 
 function AuthGate() {
-  const { currentUser } = useAuth();
+  const { currentUser, isAdmin } = useAuth();
   const [showRegister, setShowRegister] = useState(false);
+
+  if (isAdmin) {
+    return <AdminPage />;
+  }
 
   if (!currentUser) {
     if (showRegister) {

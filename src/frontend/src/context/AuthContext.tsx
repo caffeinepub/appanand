@@ -1,18 +1,23 @@
 import type React from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useState } from "react";
 import type { User } from "../backend.d";
 import { useActor } from "../hooks/useActor";
 
 const STORAGE_KEY = "appanand_user";
+const ADMIN_KEY = "appanand_admin";
+const ADMIN_USERNAME = "Myappadmin";
+const ADMIN_PASSWORD = "Myapp@admin";
 
 interface AuthContextValue {
   currentUser: User | null;
   isLoading: boolean;
+  isAdmin: boolean;
   login: (
     username: string,
     password: string,
   ) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  adminLogout: () => void;
   register: (
     name: string,
     username: string,
@@ -29,7 +34,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        // bigint fields are stored as strings
         return {
           ...parsed,
           id: BigInt(parsed.id),
@@ -41,9 +45,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     return null;
   });
+  const [isAdmin, setIsAdmin] = useState<boolean>(
+    () => localStorage.getItem(ADMIN_KEY) === "true",
+  );
   const [isLoading, setIsLoading] = useState(false);
 
-  // wait for actor before enabling
   const actorReady = !!actor && !isFetching;
 
   const persistUser = (user: User) => {
@@ -59,6 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = async (username: string, password: string) => {
+    // Admin shortcut — no backend call needed
+    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+      localStorage.setItem(ADMIN_KEY, "true");
+      setIsAdmin(true);
+      return { success: true };
+    }
+
     if (!actorReady) return { success: false, error: "App not ready yet" };
     setIsLoading(true);
     try {
@@ -80,6 +93,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(null);
   };
 
+  const adminLogout = () => {
+    localStorage.removeItem(ADMIN_KEY);
+    setIsAdmin(false);
+  };
+
   const register = async (name: string, username: string, password: string) => {
     if (!actorReady) return { success: false, error: "App not ready yet" };
     setIsLoading(true);
@@ -99,7 +117,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (result.__kind__ === "None") {
         return { success: false, error: "Username already taken" };
       }
-      // Use returned User directly to avoid IC query staleness race condition
       persistUser(result.value);
       return { success: true };
     } catch (e: any) {
@@ -111,7 +128,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ currentUser, isLoading, login, logout, register }}
+      value={{
+        currentUser,
+        isLoading,
+        isAdmin,
+        login,
+        logout,
+        adminLogout,
+        register,
+      }}
     >
       {children}
     </AuthContext.Provider>
