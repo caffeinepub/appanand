@@ -1,0 +1,131 @@
+// @ts-nocheck
+export const idlFactory = ({ IDL }) => {
+  const User = IDL.Record({
+    id: IDL.Nat,
+    name: IDL.Text,
+    username: IDL.Text,
+    password: IDL.Text,
+    createdAt: IDL.Int,
+  });
+  const DutyEntryInput = IDL.Record({
+    userId: IDL.Nat,
+    dutyDate: IDL.Int,
+    reportingTime: IDL.Opt(IDL.Text),
+    workType: IDL.Text,
+    dutyRole: IDL.Text,
+    orderNo: IDL.Text,
+    remunerationAmount: IDL.Float64,
+    remunerationCredited: IDL.Bool,
+    remunerationCreditDate: IDL.Opt(IDL.Int),
+    taEligible: IDL.Bool,
+    taAmount: IDL.Opt(IDL.Float64),
+    taSubmissionStatus: IDL.Opt(IDL.Text),
+    taCredited: IDL.Opt(IDL.Bool),
+    taCreditDate: IDL.Opt(IDL.Int),
+    orderDocumentId: IDL.Opt(IDL.Text),
+    remarks: IDL.Opt(IDL.Text),
+  });
+  const DutyEntry = IDL.Record({
+    id: IDL.Nat,
+    userId: IDL.Nat,
+    dutyDate: IDL.Int,
+    reportingTime: IDL.Opt(IDL.Text),
+    workType: IDL.Text,
+    dutyRole: IDL.Text,
+    orderNo: IDL.Text,
+    remunerationAmount: IDL.Float64,
+    remunerationCredited: IDL.Bool,
+    remunerationCreditDate: IDL.Opt(IDL.Int),
+    taEligible: IDL.Bool,
+    taAmount: IDL.Opt(IDL.Float64),
+    taSubmissionStatus: IDL.Opt(IDL.Text),
+    taCredited: IDL.Opt(IDL.Bool),
+    taCreditDate: IDL.Opt(IDL.Int),
+    orderDocumentId: IDL.Opt(IDL.Text),
+    remarks: IDL.Opt(IDL.Text),
+    createdAt: IDL.Int,
+  });
+  const LeaveEntryInput = IDL.Record({
+    userId: IDL.Nat,
+    leaveType: IDL.Text,
+    holidayDutyDate: IDL.Opt(IDL.Int),
+    sanctionedDate: IDL.Opt(IDL.Int),
+    sanctionedOD: IDL.Opt(IDL.Nat),
+    orderDocumentLeaveId: IDL.Opt(IDL.Text),
+    orderNumber: IDL.Text,
+    availed: IDL.Bool,
+    availedDates: IDL.Vec(IDL.Int),
+    remarks: IDL.Opt(IDL.Text),
+  });
+  const LeaveEntry = IDL.Record({
+    id: IDL.Nat,
+    userId: IDL.Nat,
+    leaveType: IDL.Text,
+    holidayDutyDate: IDL.Opt(IDL.Int),
+    sanctionedDate: IDL.Opt(IDL.Int),
+    sanctionedOD: IDL.Opt(IDL.Nat),
+    orderDocumentLeaveId: IDL.Opt(IDL.Text),
+    orderNumber: IDL.Text,
+    availed: IDL.Bool,
+    availedDates: IDL.Vec(IDL.Int),
+    remarks: IDL.Opt(IDL.Text),
+    createdAt: IDL.Int,
+  });
+  const UpcomingDutyInput = IDL.Record({
+    userId: IDL.Nat,
+    dutyDate: IDL.Int,
+    reportingTime: IDL.Text,
+    workType: IDL.Text,
+    dutyRole: IDL.Text,
+    orderNumber: IDL.Text,
+    reminderEnabled: IDL.Bool,
+    status: IDL.Text,
+  });
+  const UpcomingDuty = IDL.Record({
+    id: IDL.Nat,
+    userId: IDL.Nat,
+    dutyDate: IDL.Int,
+    reportingTime: IDL.Text,
+    workType: IDL.Text,
+    dutyRole: IDL.Text,
+    orderNumber: IDL.Text,
+    reminderEnabled: IDL.Bool,
+    status: IDL.Text,
+    createdAt: IDL.Int,
+  });
+  return IDL.Service({
+    // Auth
+    registerUser: IDL.Func([IDL.Text, IDL.Text, IDL.Text], [IDL.Opt(IDL.Nat)], []),
+    loginUser: IDL.Func([IDL.Text, IDL.Text], [IDL.Opt(User)], ['query']),
+    getUserCount: IDL.Func([], [IDL.Nat], ['query']),
+    // Duty Entries
+    addDutyEntry: IDL.Func([DutyEntryInput], [IDL.Nat], []),
+    getAllDutyEntries: IDL.Func([], [IDL.Vec(DutyEntry)], ['query']),
+    getDutyEntriesByUser: IDL.Func([IDL.Nat], [IDL.Vec(DutyEntry)], ['query']),
+    getDutyEntry: IDL.Func([IDL.Nat], [IDL.Opt(DutyEntry)], ['query']),
+    updateDutyEntry: IDL.Func([IDL.Nat, DutyEntryInput], [IDL.Bool], []),
+    deleteDutyEntry: IDL.Func([IDL.Nat], [IDL.Bool], []),
+    // Leave Entries
+    addLeaveEntry: IDL.Func([LeaveEntryInput], [IDL.Nat], []),
+    getAllLeaveEntries: IDL.Func([], [IDL.Vec(LeaveEntry)], ['query']),
+    getLeaveEntriesByUser: IDL.Func([IDL.Nat], [IDL.Vec(LeaveEntry)], ['query']),
+    getLeaveEntry: IDL.Func([IDL.Nat], [IDL.Opt(LeaveEntry)], ['query']),
+    updateLeaveEntry: IDL.Func([IDL.Nat, LeaveEntryInput], [IDL.Bool], []),
+    deleteLeaveEntry: IDL.Func([IDL.Nat], [IDL.Bool], []),
+    // Upcoming Duties
+    addUpcomingDuty: IDL.Func([UpcomingDutyInput], [IDL.Nat], []),
+    getAllUpcomingDuties: IDL.Func([], [IDL.Vec(UpcomingDuty)], ['query']),
+    getUpcomingDutiesByUser: IDL.Func([IDL.Nat], [IDL.Vec(UpcomingDuty)], ['query']),
+    getUpcomingDuty: IDL.Func([IDL.Nat], [IDL.Opt(UpcomingDuty)], ['query']),
+    updateUpcomingDuty: IDL.Func([IDL.Nat, UpcomingDutyInput], [IDL.Bool], []),
+    deleteUpcomingDuty: IDL.Func([IDL.Nat], [IDL.Bool], []),
+    markUpcomingDutyCompleted: IDL.Func([IDL.Nat], [IDL.Bool], []),
+    markUpcomingDutyMissed: IDL.Func([IDL.Nat], [IDL.Bool], []),
+    // Blob storage
+    startUpload: IDL.Func([IDL.Text, IDL.Text, IDL.Nat], [IDL.Text], []),
+    uploadChunk: IDL.Func([IDL.Text, IDL.Nat, IDL.Vec(IDL.Nat8)], [IDL.Bool], []),
+    finalizeUpload: IDL.Func([IDL.Text], [IDL.Text], []),
+    deleteBlob: IDL.Func([IDL.Text], [IDL.Bool], []),
+  });
+};
+export const init = ({ IDL }) => [];
