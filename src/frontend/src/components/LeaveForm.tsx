@@ -106,7 +106,9 @@ interface LeaveFormProps {
   userId: bigint;
   editEntry: LeaveEntry | null;
   onCancelEdit: () => void;
-  formRef: React.RefObject<HTMLDivElement | null>;
+  formRef?: React.RefObject<HTMLDivElement | null>;
+  actorReady: boolean;
+  onSuccess?: () => void;
 }
 
 export function LeaveForm({
@@ -114,6 +116,8 @@ export function LeaveForm({
   onCancelEdit,
   formRef,
   userId,
+  actorReady,
+  onSuccess,
 }: LeaveFormProps) {
   const [form, setForm] = useState<LeaveFormState>(makeEmptyForm);
   const [uploading, setUploading] = useState(false);
@@ -274,13 +278,17 @@ export function LeaveForm({
         await updateMutation.mutateAsync({ id: editEntry.id, input });
         toast.success("Leave entry updated successfully");
         onCancelEdit();
+        onSuccess?.();
       } else {
         await addMutation.mutateAsync(input);
         toast.success("Leave entry added successfully");
         setForm(makeEmptyForm());
+        onSuccess?.();
       }
     } catch (err) {
-      toast.error(isEditing ? "Failed to update entry" : "Failed to add entry");
+      toast.error(
+        `Failed to ${isEditing ? "update" : "add"} entry: ${err instanceof Error ? err.message : String(err)}`,
+      );
       console.error(err);
     }
   };
@@ -676,11 +684,16 @@ export function LeaveForm({
         )}
 
         {/* Actions */}
+        {!actorReady && (
+          <p className="text-xs text-muted-foreground">
+            Connecting to backend...
+          </p>
+        )}
         <div className="flex items-center gap-3 pt-2 border-t border-border">
           <Button
             type="submit"
             data-ocid="leave.submit_button"
-            disabled={isPending || uploading}
+            disabled={isPending || uploading || !actorReady}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {isPending ? (

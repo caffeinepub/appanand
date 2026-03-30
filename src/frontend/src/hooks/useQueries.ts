@@ -33,6 +33,7 @@ export function useAddDutyEntry() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dutyEntries"] });
+      queryClient.refetchQueries({ queryKey: ["dutyEntries"] });
     },
   });
 }
@@ -50,6 +51,7 @@ export function useUpdateDutyEntry() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dutyEntries"] });
+      queryClient.refetchQueries({ queryKey: ["dutyEntries"] });
     },
   });
 }
@@ -64,6 +66,7 @@ export function useDeleteDutyEntry() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["dutyEntries"] });
+      queryClient.refetchQueries({ queryKey: ["dutyEntries"] });
     },
   });
 }
@@ -94,6 +97,7 @@ export function useAddLeaveEntry() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaveEntries"] });
+      queryClient.refetchQueries({ queryKey: ["leaveEntries"] });
     },
   });
 }
@@ -111,6 +115,7 @@ export function useUpdateLeaveEntry() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaveEntries"] });
+      queryClient.refetchQueries({ queryKey: ["leaveEntries"] });
     },
   });
 }
@@ -125,6 +130,7 @@ export function useDeleteLeaveEntry() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leaveEntries"] });
+      queryClient.refetchQueries({ queryKey: ["leaveEntries"] });
     },
   });
 }
@@ -151,8 +157,10 @@ export function useAddUpcomingDuty() {
       if (!actor) throw new Error("Actor not ready");
       return (actor as any).addUpcomingDuty(input);
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["upcomingDuties"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["upcomingDuties"] });
+      queryClient.refetchQueries({ queryKey: ["upcomingDuties"] });
+    },
   });
 }
 
@@ -167,8 +175,10 @@ export function useUpdateUpcomingDuty() {
       if (!actor) throw new Error("Actor not ready");
       return (actor as any).updateUpcomingDuty(id, input);
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["upcomingDuties"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["upcomingDuties"] });
+      queryClient.refetchQueries({ queryKey: ["upcomingDuties"] });
+    },
   });
 }
 
@@ -180,8 +190,10 @@ export function useDeleteUpcomingDuty() {
       if (!actor) throw new Error("Actor not ready");
       return (actor as any).deleteUpcomingDuty(id);
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["upcomingDuties"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["upcomingDuties"] });
+      queryClient.refetchQueries({ queryKey: ["upcomingDuties"] });
+    },
   });
 }
 
@@ -195,7 +207,9 @@ export function useMarkUpcomingDutyCompleted() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["upcomingDuties"] });
+      queryClient.refetchQueries({ queryKey: ["upcomingDuties"] });
       queryClient.invalidateQueries({ queryKey: ["dutyEntries"] });
+      queryClient.refetchQueries({ queryKey: ["dutyEntries"] });
     },
   });
 }
@@ -208,8 +222,10 @@ export function useMarkUpcomingDutyMissed() {
       if (!actor) throw new Error("Actor not ready");
       return (actor as any).markUpcomingDutyMissed(id);
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["upcomingDuties"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["upcomingDuties"] });
+      queryClient.refetchQueries({ queryKey: ["upcomingDuties"] });
+    },
   });
 }
 

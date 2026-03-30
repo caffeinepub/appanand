@@ -18,7 +18,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Edit2, ExternalLink, Trash2 } from "lucide-react";
+import { Edit2, ExternalLink, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { LeaveEntry } from "../backend.d";
@@ -49,26 +49,38 @@ function addMonths(date: Date, months: number): Date {
   return d;
 }
 
-function computeDaysLeft(entry: LeaveEntry): number {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
+function computeExpiry(entry: LeaveEntry): Date | null {
   if (entry.leaveType === "CompOff") {
     const hdd = getOpt(entry.holidayDutyDate);
-    if (!hdd) return -1;
-    const expiry = addMonths(nanoToDate(hdd), 3);
-    expiry.setHours(0, 0, 0, 0);
-    return Math.ceil(
-      (expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-    );
+    if (!hdd) return null;
+    return addMonths(nanoToDate(hdd), 3);
   }
   const sd = getOpt(entry.sanctionedDate);
-  if (!sd) return -1;
-  const expiry = addMonths(nanoToDate(sd), 12);
-  expiry.setHours(0, 0, 0, 0);
-  return Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (!sd) return null;
+  return addMonths(nanoToDate(sd), 12);
 }
 
-function DaysLeftBadge({ days }: { days: number }) {
+function formatExpiryDate(d: Date): string {
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function UseBeforeBadge({ entry }: { entry: LeaveEntry }) {
+  if (entry.availed)
+    return <span className="text-muted-foreground text-xs">—</span>;
+  const expiry = computeExpiry(entry);
+  if (!expiry) return <span className="text-muted-foreground text-xs">—</span>;
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const exp = new Date(expiry);
+  exp.setHours(0, 0, 0, 0);
+  const days = Math.ceil(
+    (exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+  );
+  const label = formatExpiryDate(expiry);
   if (days <= 0)
     return (
       <Badge variant="destructive" className="text-xs">
@@ -78,18 +90,18 @@ function DaysLeftBadge({ days }: { days: number }) {
   if (days < 14)
     return (
       <Badge className="text-xs bg-orange-100 text-orange-700 border-orange-200 hover:bg-orange-100">
-        {days}d
+        Use by {label}
       </Badge>
     );
   if (days < 30)
     return (
       <Badge className="text-xs bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-100">
-        {days}d
+        Use by {label}
       </Badge>
     );
   return (
-    <Badge className="text-xs bg-success/60 text-success-foreground border-success/40 hover:bg-success/60">
-      {days}d
+    <Badge className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200 hover:bg-emerald-100">
+      Use by {label}
     </Badge>
   );
 }
@@ -98,9 +110,15 @@ interface LeaveTableProps {
   entries: LeaveEntry[];
   isLoading: boolean;
   onEdit: (entry: LeaveEntry) => void;
+  onAddNew?: () => void;
 }
 
-export function LeaveTable({ entries, isLoading, onEdit }: LeaveTableProps) {
+export function LeaveTable({
+  entries,
+  isLoading,
+  onEdit,
+  onAddNew,
+}: LeaveTableProps) {
   const [deleteTarget, setDeleteTarget] = useState<LeaveEntry | null>(null);
   const deleteMutation = useDeleteLeaveEntry();
 
@@ -126,7 +144,12 @@ export function LeaveTable({ entries, isLoading, onEdit }: LeaveTableProps) {
     }
   };
 
-  const available = entries.filter((e) => !e.availed && computeDaysLeft(e) > 0);
+  const available = entries.filter((e) => {
+    if (e.availed) return false;
+    const exp = computeExpiry(e);
+    if (!exp) return false;
+    return exp.getTime() > Date.now();
+  });
   const used = entries.filter((e) => e.availed);
   const pending = entries.filter((e) => !e.availed);
 
@@ -147,7 +170,6 @@ export function LeaveTable({ entries, isLoading, onEdit }: LeaveTableProps) {
     }
     return list.map((entry, i) => {
       const idx = startIdx + i + 1;
-      const daysLeft = computeDaysLeft(entry);
       const refDateNano =
         entry.leaveType === "CompOff"
           ? getOpt(entry.holidayDutyDate)
@@ -162,8 +184,8 @@ export function LeaveTable({ entries, isLoading, onEdit }: LeaveTableProps) {
               variant="outline"
               className={
                 entry.leaveType === "CompOff"
-                  ? "border-primary/40 text-primary bg-primary/5 text-xs"
-                  : "border-accent-foreground/30 text-accent-foreground bg-accent text-xs"
+                  ? "border-indigo-200 text-indigo-700 bg-indigo-100 text-xs"
+                  : "border-violet-200 text-violet-700 bg-violet-100 text-xs"
               }
             >
               {entry.leaveType === "CompOff" ? "Comp Off" : "Unpunched OD"}
@@ -177,7 +199,7 @@ export function LeaveTable({ entries, isLoading, onEdit }: LeaveTableProps) {
             {sanctionedOD !== null ? String(sanctionedOD) : "—"}
           </TableCell>
           <TableCell>
-            <DaysLeftBadge days={daysLeft} />
+            <UseBeforeBadge entry={entry} />
           </TableCell>
           <TableCell>
             {entry.availed ? (
@@ -243,7 +265,7 @@ export function LeaveTable({ entries, isLoading, onEdit }: LeaveTableProps) {
         <TableHead className="text-xs">Order No.</TableHead>
         <TableHead className="text-xs">Reference Date</TableHead>
         <TableHead className="text-xs">OD Count</TableHead>
-        <TableHead className="text-xs">Days Left</TableHead>
+        <TableHead className="text-xs">Use Before</TableHead>
         <TableHead className="text-xs">Status</TableHead>
         <TableHead className="text-xs">Availed Date(s)</TableHead>
         <TableHead className="text-xs">Actions</TableHead>
@@ -267,10 +289,27 @@ export function LeaveTable({ entries, isLoading, onEdit }: LeaveTableProps) {
     <>
       <div className="bg-card rounded-xl border border-border shadow-card">
         <div className="px-6 py-4 border-b border-border">
-          <h2 className="text-lg font-bold text-foreground">Leave Records</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {entries.length} total entries
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold text-foreground">
+                Leave Records
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {entries.length} total entries
+              </p>
+            </div>
+            {onAddNew && (
+              <Button
+                size="sm"
+                onClick={onAddNew}
+                data-ocid="leave.open_modal_button"
+                className="h-8 text-xs gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Leave Entry
+              </Button>
+            )}
+          </div>
         </div>
 
         <Tabs defaultValue="all" className="p-4">

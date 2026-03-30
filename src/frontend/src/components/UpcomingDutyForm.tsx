@@ -12,12 +12,13 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import type { UpcomingDuty, UpcomingDutyInput } from "../backend.d";
+import type { Option, UpcomingDuty, UpcomingDutyInput } from "../backend.d";
 import { useAddUpcomingDuty, useUpdateUpcomingDuty } from "../hooks/useQueries";
 
 const WORK_TYPES = [
   "OMR Exam",
   "OMR Dept Exam",
+  "OSM",
   "OLE",
   "Dept OLE",
   "Interview",
@@ -44,6 +45,18 @@ function nanoToDateStr(nano: bigint): string {
   return new Date(ms).toISOString().slice(0, 10);
 }
 
+function someVal<T>(val: T): Option<T> {
+  return { __kind__: "Some", value: val };
+}
+
+const noneVal: Option<never> = { __kind__: "None" } as Option<never>;
+
+function getOpt<T>(opt: Option<T>): T | null {
+  if (opt.__kind__ === "Some")
+    return (opt as { __kind__: "Some"; value: T }).value;
+  return null;
+}
+
 function scheduleNotification(title: string, body: string, targetTime: Date) {
   const delay = targetTime.getTime() - Date.now();
   if (delay <= 0) return;
@@ -60,6 +73,7 @@ interface FormState {
   reportingTime: string;
   workType: string;
   dutyRole: string;
+  centreOfDuty: string;
   orderNumber: string;
   reminderEnabled: boolean;
   status: string;
@@ -70,6 +84,7 @@ const emptyForm: FormState = {
   reportingTime: "",
   workType: "",
   dutyRole: "",
+  centreOfDuty: "",
   orderNumber: "",
   reminderEnabled: false,
   status: "Scheduled",
@@ -78,8 +93,10 @@ const emptyForm: FormState = {
 interface UpcomingDutyFormProps {
   editEntry: UpcomingDuty | null;
   onCancelEdit: () => void;
-  formRef: React.RefObject<HTMLDivElement | null>;
+  formRef?: React.RefObject<HTMLDivElement | null>;
   userId: bigint;
+  actorReady: boolean;
+  onSuccess?: () => void;
 }
 
 export function UpcomingDutyForm({
@@ -87,6 +104,8 @@ export function UpcomingDutyForm({
   onCancelEdit,
   formRef,
   userId,
+  actorReady,
+  onSuccess,
 }: UpcomingDutyFormProps) {
   const [form, setForm] = useState<FormState>(emptyForm);
 
@@ -103,6 +122,7 @@ export function UpcomingDutyForm({
         reportingTime: editEntry.reportingTime,
         workType: editEntry.workType,
         dutyRole: editEntry.dutyRole,
+        centreOfDuty: getOpt(editEntry.centreOfDuty) ?? "",
         orderNumber: editEntry.orderNumber,
         reminderEnabled: editEntry.reminderEnabled,
         status: editEntry.status,
@@ -152,6 +172,9 @@ export function UpcomingDutyForm({
     reportingTime: form.reportingTime,
     workType: form.workType,
     dutyRole: form.dutyRole,
+    centreOfDuty: form.centreOfDuty.trim()
+      ? someVal(form.centreOfDuty.trim())
+      : noneVal,
     orderNumber: form.orderNumber,
     reminderEnabled: form.reminderEnabled,
     status: form.status,
@@ -176,10 +199,12 @@ export function UpcomingDutyForm({
         await updateMutation.mutateAsync({ id: editEntry.id, input });
         toast.success("Upcoming duty updated successfully");
         onCancelEdit();
+        onSuccess?.();
       } else {
         await addMutation.mutateAsync(input);
         toast.success("Upcoming duty added successfully");
         setForm(emptyForm);
+        onSuccess?.();
       }
 
       // Schedule reminders if enabled and date is in the future
@@ -196,7 +221,9 @@ export function UpcomingDutyForm({
         );
       }
     } catch (err) {
-      toast.error(isEditing ? "Failed to update duty" : "Failed to add duty");
+      toast.error(
+        `Failed to ${isEditing ? "update" : "add"} duty: ${err instanceof Error ? err.message : String(err)}`,
+      );
       console.error(err);
     }
   };
@@ -288,6 +315,20 @@ export function UpcomingDutyForm({
           </div>
 
           <div className="space-y-1.5">
+            <Label htmlFor="ud-centreOfDuty" className="text-xs font-medium">
+              Centre of Duty
+            </Label>
+            <Input
+              id="ud-centreOfDuty"
+              data-ocid="upcoming.input"
+              value={form.centreOfDuty}
+              onChange={(e) => set("centreOfDuty", e.target.value)}
+              placeholder="e.g. District Collectorate, City Hall"
+              className="text-sm"
+            />
+          </div>
+
+          <div className="space-y-1.5">
             <Label htmlFor="ud-orderNumber" className="text-xs font-medium">
               Order Number
             </Label>
@@ -334,11 +375,16 @@ export function UpcomingDutyForm({
           </div>
         </div>
 
+        {!actorReady && (
+          <p className="text-xs text-muted-foreground">
+            Connecting to backend...
+          </p>
+        )}
         <div className="flex items-center gap-3 pt-2">
           <Button
             type="submit"
             data-ocid="upcoming.submit_button"
-            disabled={isPending}
+            disabled={isPending || !actorReady}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {isPending ? (

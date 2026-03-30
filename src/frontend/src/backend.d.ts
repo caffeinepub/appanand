@@ -23,6 +23,7 @@ export interface DutyEntry {
     reportingTime: Option<string>;
     workType: string;
     dutyRole: string;
+    centreOfDuty: Option<string>;
     orderNo: string;
     remunerationAmount: number;
     remunerationCredited: boolean;
@@ -43,6 +44,7 @@ export interface DutyEntryInput {
     reportingTime: Option<string>;
     workType: string;
     dutyRole: string;
+    centreOfDuty: Option<string>;
     orderNo: string;
     remunerationAmount: number;
     remunerationCredited: boolean;
@@ -91,6 +93,7 @@ export interface UpcomingDuty {
     reportingTime: string;
     workType: string;
     dutyRole: string;
+    centreOfDuty: Option<string>;
     orderNumber: string;
     reminderEnabled: boolean;
     status: string;
@@ -103,6 +106,7 @@ export interface UpcomingDutyInput {
     reportingTime: string;
     workType: string;
     dutyRole: string;
+    centreOfDuty: Option<string>;
     orderNumber: string;
     reminderEnabled: boolean;
     status: string;

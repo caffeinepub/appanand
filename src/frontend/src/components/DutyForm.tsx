@@ -20,6 +20,7 @@ import { getStorageClient } from "../utils/storageUtils";
 const WORK_TYPES = [
   "OMR Exam",
   "OMR Dept Exam",
+  "OSM",
   "OLE",
   "Dept OLE",
   "Interview",
@@ -65,6 +66,7 @@ interface FormState {
   reportingTime: string;
   workType: string;
   dutyRole: string;
+  centreOfDuty: string;
   orderNo: string;
   remunerationAmount: string;
   remunerationCredited: boolean;
@@ -84,6 +86,7 @@ const emptyForm: FormState = {
   reportingTime: "",
   workType: "",
   dutyRole: "",
+  centreOfDuty: "",
   orderNo: "",
   remunerationAmount: "",
   remunerationCredited: false,
@@ -102,7 +105,9 @@ interface DutyFormProps {
   userId: bigint;
   editEntry: DutyEntry | null;
   onCancelEdit: () => void;
-  formRef: React.RefObject<HTMLDivElement | null>;
+  formRef?: React.RefObject<HTMLDivElement | null>;
+  actorReady: boolean;
+  onSuccess?: () => void;
 }
 
 export function DutyForm({
@@ -110,6 +115,8 @@ export function DutyForm({
   onCancelEdit,
   formRef,
   userId,
+  actorReady,
+  onSuccess,
 }: DutyFormProps) {
   const [form, setForm] = useState<FormState>(emptyForm);
   const [uploading, setUploading] = useState(false);
@@ -129,6 +136,7 @@ export function DutyForm({
         reportingTime: getOpt(editEntry.reportingTime) ?? "",
         workType: editEntry.workType,
         dutyRole: editEntry.dutyRole,
+        centreOfDuty: getOpt(editEntry.centreOfDuty) ?? "",
         orderNo: editEntry.orderNo,
         remunerationAmount: String(editEntry.remunerationAmount),
         remunerationCredited: editEntry.remunerationCredited,
@@ -185,6 +193,9 @@ export function DutyForm({
     reportingTime: form.reportingTime ? someVal(form.reportingTime) : noneVal,
     workType: form.workType,
     dutyRole: form.dutyRole,
+    centreOfDuty: form.centreOfDuty.trim()
+      ? someVal(form.centreOfDuty.trim())
+      : noneVal,
     orderNo: form.orderNo,
     remunerationAmount: Number(form.remunerationAmount) || 0,
     remunerationCredited: form.remunerationCredited,
@@ -223,13 +234,17 @@ export function DutyForm({
         await updateMutation.mutateAsync({ id: editEntry.id, input });
         toast.success("Duty entry updated successfully");
         onCancelEdit();
+        onSuccess?.();
       } else {
         await addMutation.mutateAsync(input);
         toast.success("Duty entry added successfully");
         setForm(emptyForm);
+        onSuccess?.();
       }
     } catch (err) {
-      toast.error(isEditing ? "Failed to update entry" : "Failed to add entry");
+      toast.error(
+        `Failed to ${isEditing ? "update" : "add"} entry: ${err instanceof Error ? err.message : String(err)}`,
+      );
       console.error(err);
     }
   };
@@ -324,6 +339,20 @@ export function DutyForm({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="centreOfDuty" className="text-xs font-medium">
+              Centre of Duty
+            </Label>
+            <Input
+              id="centreOfDuty"
+              data-ocid="duty.input"
+              value={form.centreOfDuty}
+              onChange={(e) => set("centreOfDuty", e.target.value)}
+              placeholder="e.g. District Collectorate, City Hall"
+              className="text-sm"
+            />
           </div>
 
           <div className="space-y-1.5">
@@ -585,11 +614,16 @@ export function DutyForm({
         </div>
 
         {/* Actions */}
+        {!actorReady && (
+          <p className="text-xs text-muted-foreground">
+            Connecting to backend...
+          </p>
+        )}
         <div className="flex items-center gap-3 pt-2">
           <Button
             type="submit"
             data-ocid="duty.submit_button"
-            disabled={isPending || uploading}
+            disabled={isPending || uploading || !actorReady}
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {isPending ? (

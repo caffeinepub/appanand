@@ -129,6 +129,7 @@ function dutyInputToCandid(input: any): any {
         reportingTime: optToCandid(input.reportingTime),
         workType: input.workType,
         dutyRole: input.dutyRole,
+        centreOfDuty: optToCandid(input.centreOfDuty),
         orderNo: input.orderNo,
         remunerationAmount: input.remunerationAmount,
         remunerationCredited: input.remunerationCredited,
@@ -151,6 +152,7 @@ function dutyFromCandid(entry: any): any {
         reportingTime: candidToOpt(entry.reportingTime),
         workType: entry.workType,
         dutyRole: entry.dutyRole,
+        centreOfDuty: candidToOpt(entry.centreOfDuty ?? []),
         orderNo: entry.orderNo,
         remunerationAmount: entry.remunerationAmount,
         remunerationCredited: entry.remunerationCredited,
@@ -194,6 +196,36 @@ function leaveFromCandid(entry: any): any {
         availed: entry.availed,
         availedDates: entry.availedDates,
         remarks: candidToOpt(entry.remarks),
+        createdAt: entry.createdAt,
+    };
+}
+
+function upcomingInputToCandid(input: any): any {
+    return {
+        userId: input.userId,
+        dutyDate: input.dutyDate,
+        reportingTime: input.reportingTime,
+        workType: input.workType,
+        dutyRole: input.dutyRole,
+        centreOfDuty: optToCandid(input.centreOfDuty),
+        orderNumber: input.orderNumber,
+        reminderEnabled: input.reminderEnabled,
+        status: input.status,
+    };
+}
+
+function upcomingFromCandid(entry: any): any {
+    return {
+        id: entry.id,
+        userId: entry.userId,
+        dutyDate: entry.dutyDate,
+        reportingTime: entry.reportingTime,
+        workType: entry.workType,
+        dutyRole: entry.dutyRole,
+        centreOfDuty: candidToOpt(entry.centreOfDuty ?? []),
+        orderNumber: entry.orderNumber,
+        reminderEnabled: entry.reminderEnabled,
+        status: entry.status,
         createdAt: entry.createdAt,
     };
 }
@@ -272,24 +304,27 @@ export class Backend implements backendInterface {
     }
 
     async addUpcomingDuty(input: any): Promise<bigint> {
-        return this.actor.addUpcomingDuty(input);
+        return this.actor.addUpcomingDuty(upcomingInputToCandid(input));
     }
 
     async getAllUpcomingDuties(): Promise<any[]> {
-        return this.actor.getAllUpcomingDuties();
+        const entries = await this.actor.getAllUpcomingDuties();
+        return entries.map(upcomingFromCandid);
     }
 
     async getUpcomingDutiesByUser(userId: bigint): Promise<any[]> {
-        return this.actor.getUpcomingDutiesByUser(userId);
+        const entries = await this.actor.getUpcomingDutiesByUser(userId);
+        return entries.map(upcomingFromCandid);
     }
 
     async getUpcomingDuty(id: bigint): Promise<Option<any>> {
         const result = await this.actor.getUpcomingDuty(id);
-        return candidToOpt(result);
+        if ((result as any[]).length === 0) return none();
+        return some(upcomingFromCandid((result as any[])[0]));
     }
 
     async updateUpcomingDuty(id: bigint, input: any): Promise<boolean> {
-        return this.actor.updateUpcomingDuty(id, input);
+        return this.actor.updateUpcomingDuty(id, upcomingInputToCandid(input));
     }
 
     async deleteUpcomingDuty(id: bigint): Promise<boolean> {

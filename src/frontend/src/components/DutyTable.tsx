@@ -10,6 +10,13 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -19,7 +26,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Pencil, Trash2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { DutyEntry } from "../backend.d";
@@ -52,7 +65,10 @@ const SKELETON_COLS = [
   "c8",
   "c9",
   "c10",
+  "c11",
 ];
+
+const PAGE_SIZE = 15;
 
 type ViewKey = "all" | "credited" | "pending" | "ta_pending" | "ta_credited";
 
@@ -89,6 +105,57 @@ function filterEntries(entries: DutyEntry[], view: ViewKey): DutyEntry[] {
   }
 }
 
+// FY is based on remuneration/TA credit date. Falls back to duty date if no credit date.
+function getCreditDate(entry: DutyEntry): bigint {
+  const remuCreditDate = getOpt<bigint>(entry.remunerationCreditDate as any);
+  if (remuCreditDate !== null) return remuCreditDate;
+  // fall back to duty date
+  return entry.dutyDate;
+}
+
+function getFiscalYear(nano: bigint): string {
+  const date = new Date(Number(nano) / 1_000_000);
+  const year = date.getFullYear();
+  const month = date.getMonth(); // 0-indexed
+  if (month >= 3) {
+    return `FY ${year}-${String(year + 1).slice(2)}`;
+  }
+  return `FY ${year - 1}-${String(year).slice(2)}`;
+}
+
+function getCurrentFY(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  if (month >= 3) {
+    return `FY ${year}-${String(year + 1).slice(2)}`;
+  }
+  return `FY ${year - 1}-${String(year).slice(2)}`;
+}
+
+function getAvailableFYs(entries: DutyEntry[]): string[] {
+  const fySet = new Set<string>();
+  fySet.add(getCurrentFY());
+  for (const e of entries) {
+    fySet.add(getFiscalYear(getCreditDate(e)));
+  }
+  return Array.from(fySet).sort().reverse();
+}
+
+// Calendar year derived from credit date
+function getCalendarYear(nano: bigint): number {
+  return new Date(Number(nano) / 1_000_000).getFullYear();
+}
+
+function getAvailableYears(entries: DutyEntry[]): number[] {
+  const yearSet = new Set<number>();
+  yearSet.add(new Date().getFullYear());
+  for (const e of entries) {
+    yearSet.add(getCalendarYear(getCreditDate(e)));
+  }
+  return Array.from(yearSet).sort().reverse();
+}
+
 interface DutyTableProps {
   entries: DutyEntry[];
   isLoading: boolean;
@@ -98,6 +165,9 @@ interface DutyTableProps {
 export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
   const [activeView, setActiveView] = useState<ViewKey>("all");
   const [deleteTarget, setDeleteTarget] = useState<bigint | null>(null);
+  const [selectedFY, setSelectedFY] = useState<string>("all");
+  const [selectedYear, setSelectedYear] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
   const deleteMutation = useDeleteDutyEntry();
 
   const handleDeleteConfirm = async () => {
@@ -112,7 +182,39 @@ export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
     }
   };
 
-  const filteredEntries = filterEntries(entries, activeView);
+  // FY filter by credit date
+  const fyFilteredEntries =
+    selectedFY === "all"
+      ? entries
+      : entries.filter((e) => getFiscalYear(getCreditDate(e)) === selectedFY);
+
+  // Year filter by credit date
+  const yearFilteredEntries =
+    selectedYear === "all"
+      ? fyFilteredEntries
+      : fyFilteredEntries.filter(
+          (e) => String(getCalendarYear(getCreditDate(e))) === selectedYear,
+        );
+
+  const viewFilteredEntries = filterEntries(yearFilteredEntries, activeView);
+  const availableFYs = getAvailableFYs(entries);
+  const availableYears = getAvailableYears(entries);
+
+  // Pagination
+  const totalPages = Math.max(
+    1,
+    Math.ceil(viewFilteredEntries.length / PAGE_SIZE),
+  );
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedEntries = viewFilteredEntries.slice(
+    (safePage - 1) * PAGE_SIZE,
+    safePage * PAGE_SIZE,
+  );
+
+  const handleFilterChange = (setter: (v: string) => void) => (v: string) => {
+    setter(v);
+    setCurrentPage(1);
+  };
 
   return (
     <div className="bg-card rounded-xl border border-border shadow-card">
@@ -123,21 +225,65 @@ export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
               Your Duty Entries
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {filteredEntries.length} of {entries.length} entries shown
+              {viewFilteredEntries.length} of {entries.length} entries shown
             </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Select
+              value={selectedFY}
+              onValueChange={handleFilterChange(setSelectedFY)}
+            >
+              <SelectTrigger
+                className="w-36 h-8 text-xs"
+                data-ocid="duty.select"
+              >
+                <SelectValue placeholder="Financial Year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">
+                  All FY
+                </SelectItem>
+                {availableFYs.map((fy) => (
+                  <SelectItem key={fy} value={fy} className="text-xs">
+                    {fy}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={selectedYear}
+              onValueChange={handleFilterChange(setSelectedYear)}
+            >
+              <SelectTrigger className="w-32 h-8 text-xs">
+                <SelectValue placeholder="Calendar Year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">
+                  All Years
+                </SelectItem>
+                {availableYears.map((y) => (
+                  <SelectItem key={y} value={String(y)} className="text-xs">
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
         {/* View filter pills */}
         <div className="flex flex-wrap gap-2 mt-3" data-ocid="duty.tab">
           {VIEWS.map((v) => {
-            const count = filterEntries(entries, v.key).length;
+            const count = filterEntries(yearFilteredEntries, v.key).length;
             const isActive = activeView === v.key;
             return (
               <button
                 key={v.key}
                 type="button"
-                onClick={() => setActiveView(v.key)}
+                onClick={() => {
+                  setActiveView(v.key);
+                  setCurrentPage(1);
+                }}
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                   isActive
                     ? "bg-primary text-primary-foreground shadow-sm"
@@ -170,6 +316,9 @@ export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
               </TableHead>
               <TableHead className="text-xs font-semibold">Work Type</TableHead>
               <TableHead className="text-xs font-semibold">Role</TableHead>
+              <TableHead className="text-xs font-semibold">
+                Centre of Duty
+              </TableHead>
               <TableHead className="text-xs font-semibold">Order No</TableHead>
               <TableHead className="text-xs font-semibold">
                 Remun. (₹)
@@ -197,10 +346,10 @@ export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
                   ))}
                 </TableRow>
               ))
-            ) : filteredEntries.length === 0 ? (
+            ) : paginatedEntries.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={10}
+                  colSpan={11}
                   className="text-center py-12"
                   data-ocid="duty.empty_state"
                 >
@@ -212,14 +361,14 @@ export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
                     </p>
                     <p className="text-xs">
                       {activeView === "all"
-                        ? "Add your first entry using the form on the left"
+                        ? "Add your first entry using Log New Duty"
                         : "Try switching to a different view"}
                     </p>
                   </div>
                 </TableCell>
               </TableRow>
             ) : (
-              filteredEntries.map((entry, idx) => {
+              paginatedEntries.map((entry, idx) => {
                 const taStatus = getOpt<string>(
                   entry.taSubmissionStatus as any,
                 );
@@ -229,6 +378,7 @@ export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
                   entry.remunerationCreditDate as any,
                 );
                 const taCreditedVal = getOpt<boolean>(entry.taCredited as any);
+                const centreOfDuty = getOpt<string>(entry.centreOfDuty as any);
                 return (
                   <TableRow
                     key={String(entry.id)}
@@ -243,6 +393,9 @@ export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
                     </TableCell>
                     <TableCell className="text-sm">{entry.workType}</TableCell>
                     <TableCell className="text-sm">{entry.dutyRole}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {centreOfDuty ?? "—"}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {entry.orderNo || "—"}
                     </TableCell>
@@ -333,6 +486,67 @@ export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="px-6 py-3 border-t border-border flex items-center justify-between gap-4">
+          <p className="text-xs text-muted-foreground">
+            Page {safePage} of {totalPages} &mdash; {viewFilteredEntries.length}{" "}
+            entries
+          </p>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={safePage === 1}
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </Button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1)
+              .filter(
+                (p) =>
+                  p === 1 || p === totalPages || Math.abs(p - safePage) <= 1,
+              )
+              .reduce<(number | string)[]>((acc, p, i, arr) => {
+                if (i > 0 && p - (arr[i - 1] as number) > 1)
+                  acc.push(`ellipsis-before-${p}`);
+                acc.push(p);
+                return acc;
+              }, [])
+              .map((item) =>
+                typeof item === "string" ? (
+                  <span
+                    key={item}
+                    className="text-xs text-muted-foreground px-1"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <Button
+                    key={item as number}
+                    variant={safePage === item ? "default" : "outline"}
+                    size="icon"
+                    className="h-7 w-7 text-xs"
+                    onClick={() => setCurrentPage(item as number)}
+                  >
+                    {item}
+                  </Button>
+                ),
+              )}
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={safePage === totalPages}
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <AlertDialog
         open={deleteTarget !== null}

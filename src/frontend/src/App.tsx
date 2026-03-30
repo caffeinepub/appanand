@@ -1,3 +1,10 @@
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useRef, useState } from "react";
@@ -13,6 +20,7 @@ import { StatsOverview } from "./components/StatsOverview";
 import { UpcomingDutyForm } from "./components/UpcomingDutyForm";
 import { UpcomingDutyTable } from "./components/UpcomingDutyTable";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { useActor } from "./hooks/useActor";
 import {
   useGetDutyEntriesByUser,
   useGetLeaveEntriesByUser,
@@ -25,6 +33,8 @@ import { RegisterPage } from "./pages/RegisterPage";
 function MainApp() {
   const { currentUser } = useAuth();
   const userId = currentUser!.id;
+  const { actor, isFetching: actorFetching } = useActor();
+  const actorReady = !!actor && !actorFetching;
 
   const { data: dutyEntries = [], isLoading: dutyLoading } =
     useGetDutyEntriesByUser(userId);
@@ -36,56 +46,46 @@ function MainApp() {
   const [editDuty, setEditDuty] = useState<DutyEntry | null>(null);
   const [editLeave, setEditLeave] = useState<LeaveEntry | null>(null);
   const [editUpcoming, setEditUpcoming] = useState<UpcomingDuty | null>(null);
-  const dutyFormRef = useRef<HTMLDivElement>(null);
-  const leaveFormRef = useRef<HTMLDivElement>(null);
-  const upcomingFormRef = useRef<HTMLDivElement>(null);
+
+  const [dutyModalOpen, setDutyModalOpen] = useState(false);
+  const [leaveModalOpen, setLeaveModalOpen] = useState(false);
+  const [upcomingModalOpen, setUpcomingModalOpen] = useState(false);
+
+  const dummyRef = useRef<HTMLDivElement>(null);
 
   const handleEditDuty = (entry: DutyEntry) => {
     setEditDuty(entry);
-    setTimeout(
-      () =>
-        dutyFormRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        }),
-      50,
-    );
+    setDutyModalOpen(true);
   };
 
   const handleEditLeave = (entry: LeaveEntry) => {
     setEditLeave(entry);
-    setTimeout(
-      () =>
-        leaveFormRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        }),
-      50,
-    );
+    setLeaveModalOpen(true);
   };
 
   const handleEditUpcoming = (entry: UpcomingDuty) => {
     setEditUpcoming(entry);
-    setTimeout(
-      () =>
-        upcomingFormRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        }),
-      50,
-    );
+    setUpcomingModalOpen(true);
   };
 
   const handleLogNew = () => {
     setEditDuty(null);
-    setTimeout(
-      () =>
-        dutyFormRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        }),
-      50,
-    );
+    setDutyModalOpen(true);
+  };
+
+  const closeDutyModal = () => {
+    setDutyModalOpen(false);
+    setEditDuty(null);
+  };
+
+  const closeLeaveModal = () => {
+    setLeaveModalOpen(false);
+    setEditLeave(null);
+  };
+
+  const closeUpcomingModal = () => {
+    setUpcomingModalOpen(false);
+    setEditUpcoming(null);
   };
 
   return (
@@ -93,9 +93,16 @@ function MainApp() {
       <Header />
       <HeroBand />
 
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        <Tabs defaultValue="duties" data-ocid="app.tab">
+      <main className="flex-1 w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-6 space-y-6">
+        <Tabs defaultValue="upcoming" data-ocid="app.tab">
           <TabsList className="mb-4" data-ocid="app.tab">
+            <TabsTrigger
+              value="upcoming"
+              data-ocid="app.tab"
+              className="font-medium"
+            >
+              📅 Upcoming Duties
+            </TabsTrigger>
             <TabsTrigger
               value="duties"
               data-ocid="app.tab"
@@ -110,69 +117,121 @@ function MainApp() {
             >
               🏖️ Comp Off &amp; Unpunched OD
             </TabsTrigger>
-            <TabsTrigger
-              value="upcoming"
-              data-ocid="app.tab"
-              className="font-medium"
-            >
-              📅 Upcoming Duties
-            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="upcoming" className="space-y-6">
+            <UpcomingDutyTable
+              entries={upcomingDuties}
+              isLoading={upcomingLoading}
+              onEdit={handleEditUpcoming}
+              onAddNew={() => {
+                setEditUpcoming(null);
+                setUpcomingModalOpen(true);
+              }}
+            />
+          </TabsContent>
 
           <TabsContent value="duties" className="space-y-6">
             <StatsOverview entries={dutyEntries} onLogNew={handleLogNew} />
-            <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6 items-start">
-              <DutyForm
-                editEntry={editDuty}
-                onCancelEdit={() => setEditDuty(null)}
-                formRef={dutyFormRef}
-                userId={userId}
-              />
-              <DutyTable
-                entries={dutyEntries}
-                isLoading={dutyLoading}
-                onEdit={handleEditDuty}
-              />
-            </div>
+            <DutyTable
+              entries={dutyEntries}
+              isLoading={dutyLoading}
+              onEdit={handleEditDuty}
+            />
           </TabsContent>
 
           <TabsContent value="leaves" className="space-y-6">
             <LeaveStats entries={leaveEntries} />
-            <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6 items-start">
-              <LeaveForm
-                editEntry={editLeave}
-                onCancelEdit={() => setEditLeave(null)}
-                formRef={leaveFormRef}
-                userId={userId}
-              />
-              <LeaveTable
-                entries={leaveEntries}
-                isLoading={leaveLoading}
-                onEdit={handleEditLeave}
-              />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="upcoming" className="space-y-6">
-            <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-6 items-start">
-              <UpcomingDutyForm
-                editEntry={editUpcoming}
-                onCancelEdit={() => setEditUpcoming(null)}
-                formRef={upcomingFormRef}
-                userId={userId}
-              />
-              <UpcomingDutyTable
-                entries={upcomingDuties}
-                isLoading={upcomingLoading}
-                onEdit={handleEditUpcoming}
-              />
-            </div>
+            <LeaveTable
+              entries={leaveEntries}
+              isLoading={leaveLoading}
+              onEdit={handleEditLeave}
+              onAddNew={() => {
+                setEditLeave(null);
+                setLeaveModalOpen(true);
+              }}
+            />
           </TabsContent>
         </Tabs>
       </main>
 
+      {/* Duty Form Modal */}
+      <Dialog
+        open={dutyModalOpen}
+        onOpenChange={(open) => !open && closeDutyModal()}
+      >
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          data-ocid="duty.modal"
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {editDuty ? "Edit Duty Entry" : "Log New Duty"}
+            </DialogTitle>
+          </DialogHeader>
+          <DutyForm
+            editEntry={editDuty}
+            onCancelEdit={closeDutyModal}
+            formRef={dummyRef}
+            userId={userId}
+            actorReady={actorReady}
+            onSuccess={closeDutyModal}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Leave Form Modal */}
+      <Dialog
+        open={leaveModalOpen}
+        onOpenChange={(open) => !open && closeLeaveModal()}
+      >
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          data-ocid="leave.modal"
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {editLeave ? "Edit Leave Entry" : "Add Leave Entry"}
+            </DialogTitle>
+          </DialogHeader>
+          <LeaveForm
+            editEntry={editLeave}
+            onCancelEdit={closeLeaveModal}
+            formRef={dummyRef}
+            userId={userId}
+            actorReady={actorReady}
+            onSuccess={closeLeaveModal}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Upcoming Duty Form Modal */}
+      <Dialog
+        open={upcomingModalOpen}
+        onOpenChange={(open) => !open && closeUpcomingModal()}
+      >
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          data-ocid="upcoming.modal"
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {editUpcoming ? "Edit Upcoming Duty" : "Schedule Upcoming Duty"}
+            </DialogTitle>
+          </DialogHeader>
+          <UpcomingDutyForm
+            editEntry={editUpcoming}
+            onCancelEdit={closeUpcomingModal}
+            formRef={dummyRef}
+            userId={userId}
+            actorReady={actorReady}
+            onSuccess={closeUpcomingModal}
+          />
+        </DialogContent>
+      </Dialog>
+
       <footer className="border-t border-border mt-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-4">
           <p className="text-xs text-muted-foreground text-center">
             &copy; {new Date().getFullYear()} Appanand &mdash; Personal Duty
             Tracker. Built with ❤️ using{" "}

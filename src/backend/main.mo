@@ -8,6 +8,9 @@ persistent actor {
   // ---- Blob Storage (mixin) ----
   include BlobStorageMixin();
 
+  // ---- Heartbeat: keeps the canister alive indefinitely ----
+  system func heartbeat() : async () {};
+
   // ---- Users ----
   public type User = {
     id : Nat;
@@ -86,8 +89,8 @@ persistent actor {
     createdAt : Int;
   };
 
-  // ---- Duty Entries (Module 1) ----
-  public type DutyEntry = {
+  // V3 type (with userId, no centreOfDuty)
+  type DutyEntryV3 = {
     id : Nat;
     userId : Nat;
     dutyDate : Int;
@@ -108,12 +111,36 @@ persistent actor {
     createdAt : Int;
   };
 
+  // ---- Duty Entries (Module 1) ----
+  public type DutyEntry = {
+    id : Nat;
+    userId : Nat;
+    dutyDate : Int;
+    reportingTime : ?Text;
+    workType : Text;
+    dutyRole : Text;
+    centreOfDuty : ?Text;
+    orderNo : Text;
+    remunerationAmount : Float;
+    remunerationCredited : Bool;
+    remunerationCreditDate : ?Int;
+    taEligible : Bool;
+    taAmount : ?Float;
+    taSubmissionStatus : ?Text;
+    taCredited : ?Bool;
+    taCreditDate : ?Int;
+    orderDocumentId : ?Text;
+    remarks : ?Text;
+    createdAt : Int;
+  };
+
   public type DutyEntryInput = {
     userId : Nat;
     dutyDate : Int;
     reportingTime : ?Text;
     workType : Text;
     dutyRole : Text;
+    centreOfDuty : ?Text;
     orderNo : Text;
     remunerationAmount : Float;
     remunerationCredited : Bool;
@@ -131,9 +158,12 @@ persistent actor {
   stable var entries : [DutyEntryLegacy] = [];
   stable var entriesV2 : [DutyEntryV2] = [];
   stable var entriesMigrated : Bool = false;
-  // New stable var with userId
-  stable var entriesV3 : [DutyEntry] = [];
+  // V3 stable var (with userId, no centreOfDuty)
+  stable var entriesV3 : [DutyEntryV3] = [];
   stable var entriesV3Migrated : Bool = false;
+  // V4 stable var (with centreOfDuty)
+  stable var entriesV4 : [DutyEntry] = [];
+  stable var entriesV4Migrated : Bool = false;
 
   stable var nextId : Nat = 1;
 
@@ -171,7 +201,7 @@ persistent actor {
     if (not entriesV3Migrated) {
       entriesV3 := Array.map(
         entriesV2,
-        func(e : DutyEntryV2) : DutyEntry {
+        func(e : DutyEntryV2) : DutyEntryV3 {
           {
             id = e.id;
             userId = 1;
@@ -197,6 +227,37 @@ persistent actor {
       entriesV2 := [];
       entriesV3Migrated := true;
     };
+    // Migrate V3 -> V4 (add centreOfDuty = null)
+    if (not entriesV4Migrated) {
+      entriesV4 := Array.map(
+        entriesV3,
+        func(e : DutyEntryV3) : DutyEntry {
+          {
+            id = e.id;
+            userId = e.userId;
+            dutyDate = e.dutyDate;
+            reportingTime = e.reportingTime;
+            workType = e.workType;
+            dutyRole = e.dutyRole;
+            centreOfDuty = null;
+            orderNo = e.orderNo;
+            remunerationAmount = e.remunerationAmount;
+            remunerationCredited = e.remunerationCredited;
+            remunerationCreditDate = e.remunerationCreditDate;
+            taEligible = e.taEligible;
+            taAmount = e.taAmount;
+            taSubmissionStatus = e.taSubmissionStatus;
+            taCredited = e.taCredited;
+            taCreditDate = e.taCreditDate;
+            orderDocumentId = e.orderDocumentId;
+            remarks = e.remarks;
+            createdAt = e.createdAt;
+          }
+        },
+      );
+      entriesV3 := [];
+      entriesV4Migrated := true;
+    };
   };
 
   public func addDutyEntry(input : DutyEntryInput) : async Nat {
@@ -209,6 +270,7 @@ persistent actor {
       reportingTime = input.reportingTime;
       workType = input.workType;
       dutyRole = input.dutyRole;
+      centreOfDuty = input.centreOfDuty;
       orderNo = input.orderNo;
       remunerationAmount = input.remunerationAmount;
       remunerationCredited = input.remunerationCredited;
@@ -222,13 +284,13 @@ persistent actor {
       remarks = input.remarks;
       createdAt = Time.now();
     };
-    entriesV3 := Array.append(entriesV3, [entry]);
+    entriesV4 := Array.append(entriesV4, [entry]);
     id
   };
 
   public query func getAllDutyEntries() : async [DutyEntry] {
     Array.sort(
-      entriesV3,
+      entriesV4,
       func(a : DutyEntry, b : DutyEntry) : Order.Order {
         if (a.dutyDate > b.dutyDate) { #less }
         else if (a.dutyDate < b.dutyDate) { #greater }
@@ -238,7 +300,7 @@ persistent actor {
   };
 
   public query func getDutyEntriesByUser(userId : Nat) : async [DutyEntry] {
-    let filtered = Array.filter(entriesV3, func(e : DutyEntry) : Bool { e.userId == userId });
+    let filtered = Array.filter(entriesV4, func(e : DutyEntry) : Bool { e.userId == userId });
     Array.sort(
       filtered,
       func(a : DutyEntry, b : DutyEntry) : Order.Order {
@@ -250,13 +312,13 @@ persistent actor {
   };
 
   public query func getDutyEntry(id : Nat) : async ?DutyEntry {
-    Array.find(entriesV3, func(e : DutyEntry) : Bool { e.id == id })
+    Array.find(entriesV4, func(e : DutyEntry) : Bool { e.id == id })
   };
 
   public func updateDutyEntry(id : Nat, input : DutyEntryInput) : async Bool {
     var found = false;
-    entriesV3 := Array.map(
-      entriesV3,
+    entriesV4 := Array.map(
+      entriesV4,
       func(e : DutyEntry) : DutyEntry {
         if (e.id == id) {
           found := true;
@@ -267,6 +329,7 @@ persistent actor {
             reportingTime = input.reportingTime;
             workType = input.workType;
             dutyRole = input.dutyRole;
+            centreOfDuty = input.centreOfDuty;
             orderNo = input.orderNo;
             remunerationAmount = input.remunerationAmount;
             remunerationCredited = input.remunerationCredited;
@@ -287,9 +350,9 @@ persistent actor {
   };
 
   public func deleteDutyEntry(id : Nat) : async Bool {
-    let before = entriesV3.size();
-    entriesV3 := Array.filter(entriesV3, func(e : DutyEntry) : Bool { e.id != id });
-    entriesV3.size() < before
+    let before = entriesV4.size();
+    entriesV4 := Array.filter(entriesV4, func(e : DutyEntry) : Bool { e.id != id });
+    entriesV4.size() < before
   };
 
   // ---- Leave Entries (Module 2: Comp Off & Unpunched OD) ----
@@ -342,12 +405,7 @@ persistent actor {
 
   system func preupgrade() {};
 
-  // Called inline after postupgrade
-  // We do leave migration in postupgrade as well
-  // (Motoko only allows one postupgrade, so we add it there)
-
   public func addLeaveEntry(input : LeaveEntryInput) : async Nat {
-    // Migrate legacy leave entries on first write if not done yet
     if (not leaveEntriesMigrated) {
       leaveEntriesV2 := Array.map(
         leaveEntries,
@@ -514,7 +572,8 @@ persistent actor {
     createdAt : Int;
   };
 
-  public type UpcomingDuty = {
+  // V2 type (with userId, no centreOfDuty)
+  type UpcomingDutyV2 = {
     id : Nat;
     userId : Nat;
     dutyDate : Int;
@@ -527,12 +586,27 @@ persistent actor {
     createdAt : Int;
   };
 
+  public type UpcomingDuty = {
+    id : Nat;
+    userId : Nat;
+    dutyDate : Int;
+    reportingTime : Text;
+    workType : Text;
+    dutyRole : Text;
+    centreOfDuty : ?Text;
+    orderNumber : Text;
+    reminderEnabled : Bool;
+    status : Text;
+    createdAt : Int;
+  };
+
   public type UpcomingDutyInput = {
     userId : Nat;
     dutyDate : Int;
     reportingTime : Text;
     workType : Text;
     dutyRole : Text;
+    centreOfDuty : ?Text;
     orderNumber : Text;
     reminderEnabled : Bool;
     status : Text;
@@ -540,14 +614,17 @@ persistent actor {
 
   stable var nextUpcomingId : Nat = 1;
   stable var upcomingDuties : [UpcomingDutyLegacy] = [];
-  stable var upcomingDutiesV2 : [UpcomingDuty] = [];
+  stable var upcomingDutiesV2 : [UpcomingDutyV2] = [];
   stable var upcomingDutiesMigrated : Bool = false;
+  stable var upcomingDutiesV3 : [UpcomingDuty] = [];
+  stable var upcomingDutiesV3Migrated : Bool = false;
 
-  public func addUpcomingDuty(input : UpcomingDutyInput) : async Nat {
+  // Inline migration helper for UpcomingDutyLegacy -> UpcomingDutyV2
+  func migrateUpcomingLegacy() {
     if (not upcomingDutiesMigrated) {
       upcomingDutiesV2 := Array.map(
         upcomingDuties,
-        func(e : UpcomingDutyLegacy) : UpcomingDuty {
+        func(e : UpcomingDutyLegacy) : UpcomingDutyV2 {
           { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
             workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
             reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
@@ -556,6 +633,33 @@ persistent actor {
       upcomingDuties := [];
       upcomingDutiesMigrated := true;
     };
+  };
+
+  // Inline migration helper for UpcomingDutyV2 -> UpcomingDuty (add centreOfDuty)
+  func migrateUpcomingV2() {
+    migrateUpcomingLegacy();
+    if (not upcomingDutiesV3Migrated) {
+      upcomingDutiesV3 := Array.map(
+        upcomingDutiesV2,
+        func(e : UpcomingDutyV2) : UpcomingDuty {
+          { id = e.id; userId = e.userId; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
+            workType = e.workType; dutyRole = e.dutyRole; centreOfDuty = null;
+            orderNumber = e.orderNumber; reminderEnabled = e.reminderEnabled;
+            status = e.status; createdAt = e.createdAt; }
+        },
+      );
+      upcomingDutiesV2 := [];
+      upcomingDutiesV3Migrated := true;
+    };
+  };
+
+  func getUpcomingV3Src() : [UpcomingDuty] {
+    migrateUpcomingV2();
+    upcomingDutiesV3
+  };
+
+  public func addUpcomingDuty(input : UpcomingDutyInput) : async Nat {
+    migrateUpcomingV2();
     let id = nextUpcomingId;
     nextUpcomingId += 1;
     let entry : UpcomingDuty = {
@@ -565,22 +669,33 @@ persistent actor {
       reportingTime = input.reportingTime;
       workType = input.workType;
       dutyRole = input.dutyRole;
+      centreOfDuty = input.centreOfDuty;
       orderNumber = input.orderNumber;
       reminderEnabled = input.reminderEnabled;
       status = input.status;
       createdAt = Time.now();
     };
-    upcomingDutiesV2 := Array.append(upcomingDutiesV2, [entry]);
+    upcomingDutiesV3 := Array.append(upcomingDutiesV3, [entry]);
     id
   };
 
   public query func getAllUpcomingDuties() : async [UpcomingDuty] {
-    let src = if (upcomingDutiesMigrated) { upcomingDutiesV2 } else {
-      Array.map(upcomingDuties, func(e : UpcomingDutyLegacy) : UpcomingDuty {
-        { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
-          workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
-          reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
-      })
+    let src = if (upcomingDutiesV3Migrated) { upcomingDutiesV3 } else {
+      Array.map(
+        if (upcomingDutiesMigrated) { upcomingDutiesV2 } else {
+          Array.map(upcomingDuties, func(e : UpcomingDutyLegacy) : UpcomingDutyV2 {
+            { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
+              workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
+              reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
+          })
+        },
+        func(e : UpcomingDutyV2) : UpcomingDuty {
+          { id = e.id; userId = e.userId; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
+            workType = e.workType; dutyRole = e.dutyRole; centreOfDuty = null;
+            orderNumber = e.orderNumber; reminderEnabled = e.reminderEnabled;
+            status = e.status; createdAt = e.createdAt; }
+        }
+      )
     };
     Array.sort(
       src,
@@ -593,12 +708,22 @@ persistent actor {
   };
 
   public query func getUpcomingDutiesByUser(userId : Nat) : async [UpcomingDuty] {
-    let src = if (upcomingDutiesMigrated) { upcomingDutiesV2 } else {
-      Array.map(upcomingDuties, func(e : UpcomingDutyLegacy) : UpcomingDuty {
-        { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
-          workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
-          reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
-      })
+    let src = if (upcomingDutiesV3Migrated) { upcomingDutiesV3 } else {
+      Array.map(
+        if (upcomingDutiesMigrated) { upcomingDutiesV2 } else {
+          Array.map(upcomingDuties, func(e : UpcomingDutyLegacy) : UpcomingDutyV2 {
+            { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
+              workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
+              reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
+          })
+        },
+        func(e : UpcomingDutyV2) : UpcomingDuty {
+          { id = e.id; userId = e.userId; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
+            workType = e.workType; dutyRole = e.dutyRole; centreOfDuty = null;
+            orderNumber = e.orderNumber; reminderEnabled = e.reminderEnabled;
+            status = e.status; createdAt = e.createdAt; }
+        }
+      )
     };
     let filtered = Array.filter(src, func(e : UpcomingDuty) : Bool { e.userId == userId });
     Array.sort(
@@ -612,32 +737,31 @@ persistent actor {
   };
 
   public query func getUpcomingDuty(id : Nat) : async ?UpcomingDuty {
-    let src = if (upcomingDutiesMigrated) { upcomingDutiesV2 } else {
-      Array.map(upcomingDuties, func(e : UpcomingDutyLegacy) : UpcomingDuty {
-        { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
-          workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
-          reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
-      })
+    let src = if (upcomingDutiesV3Migrated) { upcomingDutiesV3 } else {
+      Array.map(
+        if (upcomingDutiesMigrated) { upcomingDutiesV2 } else {
+          Array.map(upcomingDuties, func(e : UpcomingDutyLegacy) : UpcomingDutyV2 {
+            { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
+              workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
+              reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
+          })
+        },
+        func(e : UpcomingDutyV2) : UpcomingDuty {
+          { id = e.id; userId = e.userId; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
+            workType = e.workType; dutyRole = e.dutyRole; centreOfDuty = null;
+            orderNumber = e.orderNumber; reminderEnabled = e.reminderEnabled;
+            status = e.status; createdAt = e.createdAt; }
+        }
+      )
     };
     Array.find(src, func(e : UpcomingDuty) : Bool { e.id == id })
   };
 
   public func updateUpcomingDuty(id : Nat, input : UpcomingDutyInput) : async Bool {
-    if (not upcomingDutiesMigrated) {
-      upcomingDutiesV2 := Array.map(
-        upcomingDuties,
-        func(e : UpcomingDutyLegacy) : UpcomingDuty {
-          { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
-            workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
-            reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
-        },
-      );
-      upcomingDuties := [];
-      upcomingDutiesMigrated := true;
-    };
+    migrateUpcomingV2();
     var found = false;
-    upcomingDutiesV2 := Array.map(
-      upcomingDutiesV2,
+    upcomingDutiesV3 := Array.map(
+      upcomingDutiesV3,
       func(e : UpcomingDuty) : UpcomingDuty {
         if (e.id == id) {
           found := true;
@@ -648,6 +772,7 @@ persistent actor {
             reportingTime = input.reportingTime;
             workType = input.workType;
             dutyRole = input.dutyRole;
+            centreOfDuty = input.centreOfDuty;
             orderNumber = input.orderNumber;
             reminderEnabled = input.reminderEnabled;
             status = input.status;
@@ -660,32 +785,15 @@ persistent actor {
   };
 
   public func deleteUpcomingDuty(id : Nat) : async Bool {
-    if (not upcomingDutiesMigrated) {
-      upcomingDutiesV2 := Array.map(
-        upcomingDuties,
-        func(e : UpcomingDutyLegacy) : UpcomingDuty {
-          { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
-            workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
-            reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
-        },
-      );
-      upcomingDuties := [];
-      upcomingDutiesMigrated := true;
-    };
-    let before = upcomingDutiesV2.size();
-    upcomingDutiesV2 := Array.filter(upcomingDutiesV2, func(e : UpcomingDuty) : Bool { e.id != id });
-    upcomingDutiesV2.size() < before
+    migrateUpcomingV2();
+    let before = upcomingDutiesV3.size();
+    upcomingDutiesV3 := Array.filter(upcomingDutiesV3, func(e : UpcomingDuty) : Bool { e.id != id });
+    upcomingDutiesV3.size() < before
   };
 
   // Mark as completed: copies into DutyEntry with userId, marks status Completed
   public func markUpcomingDutyCompleted(id : Nat) : async Bool {
-    let src = if (upcomingDutiesMigrated) { upcomingDutiesV2 } else {
-      Array.map(upcomingDuties, func(e : UpcomingDutyLegacy) : UpcomingDuty {
-        { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
-          workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
-          reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
-      })
-    };
+    let src = getUpcomingV3Src();
     let found = Array.find(src, func(e : UpcomingDuty) : Bool { e.id == id });
     switch (found) {
       case null { false };
@@ -699,6 +807,7 @@ persistent actor {
           reportingTime = ?duty.reportingTime;
           workType = duty.workType;
           dutyRole = duty.dutyRole;
+          centreOfDuty = duty.centreOfDuty;
           orderNo = duty.orderNumber;
           remunerationAmount = 0.0;
           remunerationCredited = false;
@@ -712,21 +821,9 @@ persistent actor {
           remarks = null;
           createdAt = Time.now();
         };
-        entriesV3 := Array.append(entriesV3, [entry]);
-        if (not upcomingDutiesMigrated) {
-          upcomingDutiesV2 := Array.map(
-            upcomingDuties,
-            func(e : UpcomingDutyLegacy) : UpcomingDuty {
-              { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
-                workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
-                reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
-            },
-          );
-          upcomingDuties := [];
-          upcomingDutiesMigrated := true;
-        };
-        upcomingDutiesV2 := Array.map(
-          upcomingDutiesV2,
+        entriesV4 := Array.append(entriesV4, [entry]);
+        upcomingDutiesV3 := Array.map(
+          upcomingDutiesV3,
           func(e : UpcomingDuty) : UpcomingDuty {
             if (e.id == id) { { e with status = "Completed" } } else { e }
           },
@@ -737,21 +834,10 @@ persistent actor {
   };
 
   public func markUpcomingDutyMissed(id : Nat) : async Bool {
-    if (not upcomingDutiesMigrated) {
-      upcomingDutiesV2 := Array.map(
-        upcomingDuties,
-        func(e : UpcomingDutyLegacy) : UpcomingDuty {
-          { id = e.id; userId = 1; dutyDate = e.dutyDate; reportingTime = e.reportingTime;
-            workType = e.workType; dutyRole = e.dutyRole; orderNumber = e.orderNumber;
-            reminderEnabled = e.reminderEnabled; status = e.status; createdAt = e.createdAt; }
-        },
-      );
-      upcomingDuties := [];
-      upcomingDutiesMigrated := true;
-    };
+    migrateUpcomingV2();
     var found = false;
-    upcomingDutiesV2 := Array.map(
-      upcomingDutiesV2,
+    upcomingDutiesV3 := Array.map(
+      upcomingDutiesV3,
       func(e : UpcomingDuty) : UpcomingDuty {
         if (e.id == id) {
           found := true;
