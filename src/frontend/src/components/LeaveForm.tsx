@@ -119,7 +119,31 @@ export function LeaveForm({
   actorReady,
   onSuccess,
 }: LeaveFormProps) {
-  const [form, setForm] = useState<LeaveFormState>(makeEmptyForm);
+  const [form, setForm] = useState<LeaveFormState>(() => {
+    if (!editEntry) return makeEmptyForm();
+    const sanctionedODNum = getOpt(editEntry.sanctionedOD);
+    const availedDateFields: DateField[] =
+      editEntry.availedDates.length > 0
+        ? editEntry.availedDates.map((d) => ({
+            id: genId(),
+            value: nanoToDateStr(d),
+          }))
+        : [{ id: genId(), value: "" }];
+    return {
+      leaveType: editEntry.leaveType,
+      holidayDutyDate: nanoToDateStr(getOpt(editEntry.holidayDutyDate) ?? null),
+      sanctionedDate: nanoToDateStr(getOpt(editEntry.sanctionedDate) ?? null),
+      orderNumber: editEntry.orderNumber,
+      sanctionedOD: sanctionedODNum !== null ? String(sanctionedODNum) : "1",
+      availed: editEntry.availed,
+      availedDates: availedDateFields,
+      orderDocumentLeaveId: getOpt(editEntry.orderDocumentLeaveId) ?? "",
+      orderDocumentName: getOpt(editEntry.orderDocumentLeaveId)
+        ? "Uploaded Document"
+        : "",
+      remarks: getOpt(editEntry.remarks) ?? "",
+    };
+  });
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);

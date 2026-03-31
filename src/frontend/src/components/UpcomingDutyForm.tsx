@@ -107,7 +107,19 @@ export function UpcomingDutyForm({
   actorReady,
   onSuccess,
 }: UpcomingDutyFormProps) {
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const [form, setForm] = useState<FormState>(() => {
+    if (!editEntry) return emptyForm;
+    return {
+      dutyDate: nanoToDateStr(editEntry.dutyDate),
+      reportingTime: editEntry.reportingTime,
+      workType: editEntry.workType,
+      dutyRole: editEntry.dutyRole,
+      centreOfDuty: getOpt(editEntry.centreOfDuty) ?? "",
+      orderNumber: editEntry.orderNumber,
+      reminderEnabled: editEntry.reminderEnabled,
+      status: editEntry.status,
+    };
+  });
 
   const addMutation = useAddUpcomingDuty();
   const updateMutation = useUpdateUpcomingDuty();

@@ -95,25 +95,28 @@ function MainApp() {
 
       <main className="flex-1 w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-10 py-6 space-y-6">
         <Tabs defaultValue="upcoming" data-ocid="app.tab">
-          <TabsList className="mb-4" data-ocid="app.tab">
+          <TabsList
+            className="mb-6 h-auto p-1 gap-1 flex flex-wrap"
+            data-ocid="app.tab"
+          >
             <TabsTrigger
               value="upcoming"
               data-ocid="app.tab"
-              className="font-medium"
+              className="text-base font-bold px-5 py-2.5 data-[state=active]:shadow-sm"
             >
               📅 Upcoming Duties
             </TabsTrigger>
             <TabsTrigger
               value="duties"
               data-ocid="app.tab"
-              className="font-medium"
+              className="text-base font-bold px-5 py-2.5 data-[state=active]:shadow-sm"
             >
               📋 Other Duties
             </TabsTrigger>
             <TabsTrigger
               value="leaves"
               data-ocid="app.tab"
-              className="font-medium"
+              className="text-base font-bold px-5 py-2.5 data-[state=active]:shadow-sm"
             >
               🏖️ Comp Off &amp; Unpunched OD
             </TabsTrigger>
@@ -170,6 +173,7 @@ function MainApp() {
             </DialogTitle>
           </DialogHeader>
           <DutyForm
+            key={editDuty ? String(editDuty.id) : "new"}
             editEntry={editDuty}
             onCancelEdit={closeDutyModal}
             formRef={dummyRef}
@@ -195,6 +199,7 @@ function MainApp() {
             </DialogTitle>
           </DialogHeader>
           <LeaveForm
+            key={editLeave ? String(editLeave.id) : "new"}
             editEntry={editLeave}
             onCancelEdit={closeLeaveModal}
             formRef={dummyRef}
@@ -220,6 +225,7 @@ function MainApp() {
             </DialogTitle>
           </DialogHeader>
           <UpcomingDutyForm
+            key={editUpcoming ? String(editUpcoming.id) : "new"}
             editEntry={editUpcoming}
             onCancelEdit={closeUpcomingModal}
             formRef={dummyRef}

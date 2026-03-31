@@ -196,7 +196,18 @@ export function LeaveTable({
           </TableCell>
           <TableCell className="text-sm">{formatDate(refDateNano)}</TableCell>
           <TableCell className="text-sm">
-            {sanctionedOD !== null ? String(sanctionedOD) : "—"}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {sanctionedOD !== null ? String(sanctionedOD) : "—"}
+              {entry.leaveType === "UnpunchedOD" &&
+                sanctionedOD !== null &&
+                sanctionedOD > 1 &&
+                entry.availedDates.length > 0 &&
+                entry.availedDates.length < sanctionedOD && (
+                  <Badge className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border border-violet-300 hover:bg-violet-100">
+                    {Number(sanctionedOD) - entry.availedDates.length} left
+                  </Badge>
+                )}
+            </div>
           </TableCell>
           <TableCell>
             <UseBeforeBadge entry={entry} />

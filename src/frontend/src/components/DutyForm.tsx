@@ -118,7 +118,33 @@ export function DutyForm({
   actorReady,
   onSuccess,
 }: DutyFormProps) {
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const [form, setForm] = useState<FormState>(() => {
+    if (!editEntry) return emptyForm;
+    return {
+      dutyDate: nanoToDateStr(editEntry.dutyDate),
+      reportingTime: getOpt(editEntry.reportingTime) ?? "",
+      workType: editEntry.workType,
+      dutyRole: editEntry.dutyRole,
+      centreOfDuty: getOpt(editEntry.centreOfDuty) ?? "",
+      orderNo: editEntry.orderNo,
+      remunerationAmount: String(editEntry.remunerationAmount),
+      remunerationCredited: editEntry.remunerationCredited,
+      remunerationCreditDate: nanoToDateStr(
+        getOpt(editEntry.remunerationCreditDate) ?? null,
+      ),
+      taEligible: editEntry.taEligible,
+      taAmount: String(getOpt(editEntry.taAmount) ?? ""),
+      taSubmissionStatus:
+        getOpt(editEntry.taSubmissionStatus) ?? "Not Submitted",
+      taCredited: getOpt(editEntry.taCredited) ?? false,
+      taCreditDate: nanoToDateStr(getOpt(editEntry.taCreditDate) ?? null),
+      orderDocumentId: getOpt(editEntry.orderDocumentId) ?? "",
+      orderDocumentName: getOpt(editEntry.orderDocumentId)
+        ? "Uploaded Document"
+        : "",
+      remarks: getOpt(editEntry.remarks) ?? "",
+    };
+  });
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);

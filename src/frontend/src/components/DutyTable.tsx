@@ -306,6 +306,22 @@ export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
         </div>
       </div>
 
+      {/* Row colour legend */}
+      <div className="flex flex-wrap items-center gap-4 px-6 py-2 border-b border-border bg-muted/20 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">Legend:</span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm bg-green-100 border border-green-300" />
+          Remuneration Credited
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm bg-blue-100 border border-blue-300" />
+          TA Credited
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded-sm bg-white border border-border" />
+          Plain Duty
+        </span>
+      </div>
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -383,7 +399,13 @@ export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
                   <TableRow
                     key={String(entry.id)}
                     data-ocid={`duty.item.${idx + 1}`}
-                    className="hover:bg-muted/20"
+                    className={`${
+                      creditDate !== null
+                        ? "bg-green-50 hover:bg-green-100/70"
+                        : taCreditedVal === true
+                          ? "bg-blue-50 hover:bg-blue-100/70"
+                          : "hover:bg-muted/20"
+                    }`}
                   >
                     <TableCell className="text-sm font-medium">
                       {formatDate(entry.dutyDate)}
@@ -409,7 +431,7 @@ export function DutyTable({ entries, isLoading, onEdit }: DutyTableProps) {
                           <Badge className="bg-emerald-500/15 text-emerald-700 text-xs border-0 w-fit">
                             Credited
                           </Badge>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-[10px] font-bold text-foreground">
                             {formatDate(creditDate)}
                           </span>
                         </div>
