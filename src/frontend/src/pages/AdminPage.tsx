@@ -1,91 +1,79 @@
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQuery } from "@tanstack/react-query";
 import {
-  CalendarClock,
-  CheckSquare,
-  ClipboardList,
-  FileText,
-  LogOut,
-  Shield,
-  Users,
-} from "lucide-react";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useQuery } from "@tanstack/react-query";
+import { CheckSquare, LogOut, Shield, Users } from "lucide-react";
+import type { DutyEntry, LeaveEntry, UpcomingDuty, User } from "../backend.d";
 import { useAuth } from "../context/AuthContext";
 import { useActor } from "../hooks/useActor";
 
-function StatCard({
-  label,
-  value,
-  icon,
-  color,
-}: {
-  label: string;
-  value: number | undefined;
-  icon: React.ReactNode;
-  color: string;
-}) {
-  return (
-    <Card data-ocid="admin.card" className="relative overflow-hidden">
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
-            {label}
-          </CardTitle>
-          <div className={`p-2 rounded-lg ${color}`}>{icon}</div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {value === undefined ? (
-          <Skeleton className="h-9 w-20" data-ocid="admin.loading_state" />
-        ) : (
-          <p className="text-4xl font-bold tracking-tight">{value}</p>
-        )}
-      </CardContent>
-    </Card>
-  );
+function formatDate(ts: bigint | number | undefined): string {
+  if (ts === undefined || ts === null) return "—";
+  const ms = typeof ts === "bigint" ? Number(ts) / 1_000_000 : ts;
+  return new Date(ms).toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
+
+const SKELETON_ROWS = ["a", "b", "c", "d"];
 
 export function AdminPage() {
   const { adminLogout } = useAuth();
   const { actor, isFetching } = useActor();
   const actorReady = !!actor && !isFetching;
 
-  const { data: userCount } = useQuery<number>({
-    queryKey: ["admin", "userCount"],
-    queryFn: async () => {
-      const count: bigint = await (actor as any).getUserCount();
-      return Number(count);
-    },
+  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
+    queryKey: ["admin", "users"],
+    queryFn: async () => (actor as any).getAllUsers(),
     enabled: actorReady,
   });
 
-  const { data: dutyCount } = useQuery<number>({
-    queryKey: ["admin", "dutyCount"],
-    queryFn: async () => {
-      const entries = await (actor as any).getAllDutyEntries();
-      return (entries as any[]).length;
-    },
+  const { data: dutyEntries } = useQuery<DutyEntry[]>({
+    queryKey: ["admin", "allDutyEntries"],
+    queryFn: async () => (actor as any).getAllDutyEntries(),
     enabled: actorReady,
   });
 
-  const { data: leaveCount } = useQuery<number>({
-    queryKey: ["admin", "leaveCount"],
-    queryFn: async () => {
-      const entries = await (actor as any).getAllLeaveEntries();
-      return (entries as any[]).length;
-    },
+  const { data: leaveEntries } = useQuery<LeaveEntry[]>({
+    queryKey: ["admin", "allLeaveEntries"],
+    queryFn: async () => (actor as any).getAllLeaveEntries(),
     enabled: actorReady,
   });
 
-  const { data: upcomingCount } = useQuery<number>({
-    queryKey: ["admin", "upcomingCount"],
-    queryFn: async () => {
-      const entries = await (actor as any).getAllUpcomingDuties();
-      return (entries as any[]).length;
-    },
+  const { data: upcomingEntries } = useQuery<UpcomingDuty[]>({
+    queryKey: ["admin", "allUpcomingEntries"],
+    queryFn: async () => (actor as any).getAllUpcomingDuties(),
     enabled: actorReady,
   });
+
+  // Compute last entry date per userId across all three entry types
+  const lastEntryMap = (() => {
+    const map: Record<string, bigint> = {};
+    const consider = (userId: bigint, ts: bigint) => {
+      const key = userId.toString();
+      if (!map[key] || ts > map[key]) map[key] = ts;
+    };
+    for (const e of dutyEntries ?? []) consider(e.userId, e.createdAt);
+    for (const e of leaveEntries ?? []) consider(e.userId, e.createdAt);
+    for (const e of upcomingEntries ?? []) consider(e.userId, e.createdAt);
+    return map;
+  })();
+
+  const dataReady =
+    dutyEntries !== undefined &&
+    leaveEntries !== undefined &&
+    upcomingEntries !== undefined;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -109,7 +97,6 @@ export function AdminPage() {
             variant="outline"
             size="sm"
             onClick={adminLogout}
-            data-ocid="admin.button"
             className="flex items-center gap-2"
           >
             <LogOut className="w-4 h-4" />
@@ -118,7 +105,7 @@ export function AdminPage() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-10 space-y-8">
+      <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-10 space-y-6">
         {/* Admin badge + heading */}
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/30">
@@ -129,44 +116,72 @@ export function AdminPage() {
               Admin Dashboard
             </h2>
             <p className="text-sm text-muted-foreground">
-              System-wide overview of all records
+              Read-only view &mdash; registered users and their last activity
             </p>
           </div>
         </div>
 
-        {/* Stats grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            label="Registered Users"
-            value={userCount}
-            icon={<Users className="w-4 h-4 text-blue-600" />}
-            color="bg-blue-100 dark:bg-blue-900/30"
-          />
-          <StatCard
-            label="Other Duty Records"
-            value={dutyCount}
-            icon={<ClipboardList className="w-4 h-4 text-green-600" />}
-            color="bg-green-100 dark:bg-green-900/30"
-          />
-          <StatCard
-            label="Leave Records"
-            value={leaveCount}
-            icon={<FileText className="w-4 h-4 text-purple-600" />}
-            color="bg-purple-100 dark:bg-purple-900/30"
-          />
-          <StatCard
-            label="Upcoming Duties"
-            value={upcomingCount}
-            icon={<CalendarClock className="w-4 h-4 text-orange-600" />}
-            color="bg-orange-100 dark:bg-orange-900/30"
-          />
-        </div>
-
-        <Card className="border-dashed">
-          <CardContent className="py-8 text-center text-muted-foreground text-sm">
-            Logged in as{" "}
-            <span className="font-semibold text-foreground">Myappadmin</span>.
-            Admin access is read-only — data is managed by individual users.
+        {/* User List */}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="w-4 h-4" />
+              Registered Users
+              {users && (
+                <Badge variant="secondary" className="ml-1">
+                  {users.length} / 100
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {usersLoading || !dataReady ? (
+              <div className="p-6 space-y-3">
+                {SKELETON_ROWS.map((k) => (
+                  <Skeleton key={k} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : users && users.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Last Entry Date</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {[...users]
+                    .sort((a, b) => Number(a.id) - Number(b.id))
+                    .map((user, idx) => {
+                      const lastTs = lastEntryMap[user.id.toString()];
+                      return (
+                        <TableRow key={user.id.toString()}>
+                          <TableCell className="text-muted-foreground font-mono text-sm">
+                            {idx + 1}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {user.name}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {lastTs ? (
+                              formatDate(lastTs)
+                            ) : (
+                              <span className="italic text-sm">
+                                No entries yet
+                              </span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="py-12 text-center text-muted-foreground text-sm">
+                No users registered yet.
+              </div>
+            )}
           </CardContent>
         </Card>
       </main>

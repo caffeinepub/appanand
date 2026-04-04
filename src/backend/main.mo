@@ -24,7 +24,7 @@ persistent actor {
   stable var nextUserId : Nat = 1;
 
   public func registerUser(name : Text, username : Text, password : Text) : async ?User {
-    if (users.size() >= 10) { return null };
+    if (users.size() >= 100) { return null };
     let exists = Array.find(users, func(u : User) : Bool { u.username == username });
     switch (exists) {
       case (?_) { null };
@@ -46,6 +46,10 @@ persistent actor {
 
   public query func getUserCount() : async Nat {
     users.size()
+  };
+
+  public query func getAllUsers() : async [User] {
+    users
   };
 
   // ---- Migration: legacy DutyEntry type (without reportingTime) ----

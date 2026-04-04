@@ -1,30 +1,27 @@
 # Appanand
 
 ## Current State
-- Multi-user app with registration (up to 10 users) and login via backend canister
-- AuthContext handles login/register/logout with backend actor calls
-- App.tsx routes unauthenticated users to LoginPage or RegisterPage
-- No admin account exists; all users go through the same registration flow
+- User registration capped at 10 users (`users.size() >= 10` in backend)
+- Admin dashboard shows 4 stat cards (user count, duty records, leave records, upcoming duties)
+- No backend function to retrieve the full user list
+- Admin page has no user list table
 
 ## Requested Changes (Diff)
 
 ### Add
-- Hardcoded admin account: username `Myappadmin`, password `Myapp@admin`
-- Admin login check happens purely in the frontend (no backend call needed for admin)
-- AdminPage component: shows app-wide stats (user count, total duty entries, total leave entries, upcoming duties) using existing `getUserCount()`, `getAllDutyEntries()`, `getAllLeaveEntries()`, `getAllUpcomingDuties()` backend methods
-- Admin session stored separately from regular user session (e.g. `appanand_admin` localStorage key with a flag)
-- Admin logout returns to login screen
+- `getAllUsers()` query function in Motoko backend returning all User records
+- `getAllUsers()` to backend.d.ts interface
+- User list table in AdminPage: columns = Name, Last Entry Date (computed from all duty/leave/upcoming entry createdAt across all users)
 
 ### Modify
-- AuthContext: add `isAdmin` boolean and `adminLogin(username, password)` method; admin login sets isAdmin flag instead of currentUser
-- AuthGate in App.tsx: if isAdmin, render AdminPage; if currentUser, render MainApp; else show Login/Register
-- LoginPage: admin credentials are checked on the same login form — no separate UI needed; just treat `Myappadmin`/`Myapp@admin` as special case
+- Registration limit: change `>= 10` to `>= 100` in `registerUser`
+- AdminPage: replace the 4 stat cards with a clean user list table showing Name and Last Entry Date; keep header and logout
 
 ### Remove
-- Nothing removed
+- 4 stat cards (userCount, dutyCount, leaveCount, upcomingCount) from AdminPage
+- "Admin access is read-only" info card
 
 ## Implementation Plan
-1. Update AuthContext to support admin login (hardcoded check), persist admin session to localStorage, expose `isAdmin` and `adminLogin` and `adminLogout`
-2. Create `src/pages/AdminPage.tsx` — shows header with "Admin Dashboard" title, logout button, and stats cards: Registered Users, Total Other Duties, Total Leave Records, Total Upcoming Duties. Use existing backend methods.
-3. Update LoginPage to call `adminLogin` when credentials match (or just let the unified `login` method handle it — redirect happens via `isAdmin` flag)
-4. Update App.tsx AuthGate to render AdminPage when isAdmin is true
+1. Edit `main.mo`: change limit to 100, add `getAllUsers()` query
+2. Edit `backend.d.ts`: add `getAllUsers()` to interface
+3. Rewrite `AdminPage.tsx`: show user list table with Name + Last Entry Date (derived from max createdAt across all three entry types per userId)

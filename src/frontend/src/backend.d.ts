@@ -116,6 +116,7 @@ export interface backendInterface {
     registerUser(name: string, username: string, password: string): Promise<Option<User>>;
     loginUser(username: string, password: string): Promise<Option<User>>;
     getUserCount(): Promise<bigint>;
+    getAllUsers(): Promise<User[]>;
     addDutyEntry(input: DutyEntryInput): Promise<bigint>;
     getAllDutyEntries(): Promise<DutyEntry[]>;
     getDutyEntriesByUser(userId: bigint): Promise<DutyEntry[]>;
