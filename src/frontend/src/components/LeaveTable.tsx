@@ -200,9 +200,9 @@ export function LeaveTable({
               {sanctionedOD !== null ? String(sanctionedOD) : "—"}
               {entry.leaveType === "UnpunchedOD" &&
                 sanctionedOD !== null &&
-                sanctionedOD > 1 &&
+                sanctionedOD > 1n &&
                 entry.availedDates.length > 0 &&
-                entry.availedDates.length < sanctionedOD && (
+                entry.availedDates.length < Number(sanctionedOD) && (
                   <Badge className="text-[10px] px-1.5 py-0 bg-violet-100 text-violet-700 border border-violet-300 hover:bg-violet-100">
                     {Number(sanctionedOD) - entry.availedDates.length} left
                   </Badge>

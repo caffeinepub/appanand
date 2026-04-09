@@ -58,6 +58,7 @@ export function AdminPage() {
   });
 
   // Compute last entry date per userId across all three entry types
+  // Uses whatever data has already loaded — shows "—" for users with no loaded entries yet
   const lastEntryMap = (() => {
     const map: Record<string, bigint> = {};
     const consider = (userId: bigint, ts: bigint) => {
@@ -69,11 +70,6 @@ export function AdminPage() {
     for (const e of upcomingEntries ?? []) consider(e.userId, e.createdAt);
     return map;
   })();
-
-  const dataReady =
-    dutyEntries !== undefined &&
-    leaveEntries !== undefined &&
-    upcomingEntries !== undefined;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -135,7 +131,7 @@ export function AdminPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
-            {usersLoading || !dataReady ? (
+            {usersLoading ? (
               <div className="p-6 space-y-3">
                 {SKELETON_ROWS.map((k) => (
                   <Skeleton key={k} className="h-10 w-full" />

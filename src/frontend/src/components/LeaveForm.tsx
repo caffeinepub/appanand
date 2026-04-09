@@ -407,13 +407,20 @@ export function LeaveForm({
             {form.holidayDutyDate && (
               <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 border border-border">
                 <span className="text-xs font-medium text-muted-foreground">
-                  Days Left to Use (3 month validity):
+                  Use Before (3 month validity):
                 </span>
                 <span className={`text-sm font-bold ${daysLeftColor}`}>
                   {daysLeft !== null && daysLeft <= 0
                     ? "Expired"
-                    : daysLeft !== null
-                      ? `${daysLeft} days`
+                    : form.holidayDutyDate
+                      ? addMonths(
+                          new Date(form.holidayDutyDate),
+                          3,
+                        ).toLocaleDateString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })
                       : "—"}
                 </span>
               </div>

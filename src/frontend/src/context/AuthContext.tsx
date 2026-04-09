@@ -41,7 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
     } catch {
-      // ignore
+      // Clear corrupted localStorage so it doesn't keep failing on every load
+      localStorage.removeItem(STORAGE_KEY);
     }
     return null;
   });
@@ -76,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       const result = await (actor as any).loginUser(username, password);
-      if (result.__kind__ === "Some") {
+      if (result && result.__kind__ === "Some") {
         persistUser(result.value);
         return { success: true };
       }
@@ -103,10 +104,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(true);
     try {
       const count: bigint = await (actor as any).getUserCount();
-      if (count >= BigInt(10)) {
+      if (count >= BigInt(100)) {
         return {
           success: false,
-          error: "Registration is closed. Maximum 10 users reached.",
+          error: "Registration is closed. Maximum 100 users reached.",
         };
       }
       const result = await (actor as any).registerUser(
@@ -114,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         username,
         password,
       );
-      if (result.__kind__ === "None") {
+      if (!result || result.__kind__ === "None") {
         return { success: false, error: "Username already taken" };
       }
       persistUser(result.value);

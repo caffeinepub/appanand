@@ -416,11 +416,13 @@ function MissedDutiesTable({
   isLoading,
   onEdit,
   onDelete,
+  emptyMessage = "No missed duties",
 }: {
   entries: UpcomingDuty[];
   isLoading: boolean;
   onEdit: (e: UpcomingDuty) => void;
   onDelete: (id: bigint) => void;
+  emptyMessage?: string;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -457,9 +459,7 @@ function MissedDutiesTable({
           ) : entries.length === 0 ? (
             <TableRow>
               <TableCell colSpan={8} className="text-center py-12">
-                <p className="text-sm text-muted-foreground">
-                  No missed duties
-                </p>
+                <p className="text-sm text-muted-foreground">{emptyMessage}</p>
               </TableCell>
             </TableRow>
           ) : (
@@ -657,6 +657,7 @@ export function UpcomingDutyTable({
             isLoading={isLoading}
             onEdit={onEdit}
             onDelete={setDeleteTarget}
+            emptyMessage="No completed duties yet"
           />
         </TabsContent>
 

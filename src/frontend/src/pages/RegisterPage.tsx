@@ -32,7 +32,7 @@ export function RegisterPage({ onGoLogin }: RegisterPageProps) {
     (actor as any).getUserCount().then((c: bigint) => setUserCount(Number(c)));
   }, [actor, isFetching]);
 
-  const registrationClosed = userCount !== null && userCount >= 10;
+  const registrationClosed = userCount !== null && userCount >= 100;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +69,7 @@ export function RegisterPage({ onGoLogin }: RegisterPageProps) {
               Register to start tracking your duties and leaves
               {userCount !== null && !registrationClosed && (
                 <span className="ml-1 text-muted-foreground">
-                  ({userCount}/10 users)
+                  ({userCount}/100 users)
                 </span>
               )}
             </CardDescription>
@@ -79,7 +79,8 @@ export function RegisterPage({ onGoLogin }: RegisterPageProps) {
               <Alert variant="destructive" data-ocid="register.error_state">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Registration is closed. Maximum 10 users have been registered.
+                  Registration is closed. Maximum 100 users have been
+                  registered.
                 </AlertDescription>
               </Alert>
             ) : (
